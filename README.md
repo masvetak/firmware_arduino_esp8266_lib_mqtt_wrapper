@@ -1,4 +1,5 @@
 # firmware_esp8266_arduino_lib_mqtt_wrapper
+
 ESP8266 Adruino Framework MQTT Wrapper
 
 |Public Method|Description|
@@ -18,4 +19,4 @@ ESP8266 Adruino Framework MQTT Wrapper
 |onMessageReceivedCallback()|Implement this function for tiggering actions receving messages|
 |threadLoop()|Implement this function in main thread for message receiving|
 |staticTickerCallback()|Tick this function (1s-10s) for auto connection handling|
-|printConnectionFailedState()|Returns uint32_t hexadecimal value that specifies frequency band|
+|printConnectionFailedState()|Returns uint32_t hexadecimal value that specifies frequency band
