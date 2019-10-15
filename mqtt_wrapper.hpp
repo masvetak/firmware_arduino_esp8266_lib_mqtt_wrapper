@@ -17,9 +17,7 @@ class MQTTWrapper {
 
     private:
         // constructor
-        MQTTWrapper() {
-            numOfConnectRetry = 10;
-        }
+        MQTTWrapper();
 
         // singleton (C++ 03) - unimplemented methods
         MQTTWrapper(MQTTWrapper const&);
@@ -53,194 +51,39 @@ class MQTTWrapper {
             return instance;
         }
 
-        void initialize(const char *mqttServer, const int mqttPort, const char *mqttUser, const char *mqttPassword) {
-            Serial.printf("%s: initialize...\n\r", FILE_NAME_MQTT_WRAPPER);
+        void initialize(const char *mqttServer, const int mqttPort, const char *mqttUser, const char *mqttPassword);
 
-            _mqttServer = mqttServer;
-            _mqttPort = mqttPort;
-            _mqttUser = mqttUser;
-            _mqttPassword = mqttPassword;
+        void setClient(Client &client);
 
-            _mqttClient.setCallback([this] (char* topic, uint8_t* payload, uint16_t length) { this->onMessageReceivedCallback(topic, payload, length); });
-        }
+        void setServer(const char *mqttServer);
 
-        void setClient(Client &client) {
-            _mqttClient.setClient(client);
-        }
+        void setPort(const int mqttPort);
 
-        void setServer(const char *mqttServer) {
-            _mqttServer = mqttServer;
-        }
+        void setUser(const char *mqttUser);
 
-        void setPort(const int mqttPort) {
-            _mqttPort = mqttPort;
-        }
+        void setPassword(const char *mqttPassword);
 
-        void setUser(const char *mqttUser) {
-            _mqttUser = mqttUser;
-        }
+        void setMainTopic(char *topic);
 
-        void setPassword(const char *mqttPassword) {
-            _mqttPassword = mqttPassword;
-        }
+        void setSubTopic(void (*onCallback)(uint8_t *payload, uint16_t length), const char *newTopic);
 
-        void setMainTopic(char *topic) {
-            _topic = topic;
-        }
+        void publish(const char* topic, const char* message);
 
-        void setSubTopic(void (*onCallback)(uint8_t *payload, uint16_t length), const char *newTopic) {
-            uint8_t index;
-            uint8_t topicSize = sizeof(_topicList[_topicCount].topicLevel);
-            bool topicExisted = false;
+        void connect();
 
-            if(_topicCount == _maxTopics) {
-                Serial.printf("%s: register Topic list full!\n\r", FILE_NAME_MQTT_WRAPPER);
-                return;
-            }
+        void disconnect();
 
-            for (index = 0; index < _topicCount; index++) {
-                if (!memcmp(&newTopic[0], &_topicList[index].topicLevel[0], topicSize - 1)) {
-                    topicExisted = true;
-                    break;
-                }
-            }
+        bool isConnected();
 
-            _topicList[index].callback = onCallback;
+        void printConnectionFailedState();
 
-            memcpy(&_topicList[index].topicLevel[0], &newTopic[0], topicSize);
-            _topicList[index].topicLevel[topicSize - 1] = '\0';
+        void threadLoop();
 
-            strcat(_topicList[index].topic, _topic);
-            strcat(_topicList[index].topic, newTopic);
+        void onMessageReceivedCallback(char* topic, uint8_t* payload, uint16_t length);
 
-            if (!topicExisted) {
-                ++_topicCount;
-                // Serial.printf("%s: Topic registed\n\r", FILE_NAME_MQTT_WRAPPER);
-            }
-        }
+        static void staticTickerCallback();
 
-        void publish(const char* topic, const char* message) {
-            _mqttClient.publish(topic, message);
-        }
-
-        void connect() {
-            _mqttClient.setServer(_mqttServer, _mqttPort);    
-        }
-
-        void disconnect() {
-            if(_mqttClient.connected()) {
-                _mqttClient.disconnect();
-            }
-        }
-
-        bool isConnected() {
-            if(_mqttClient.connected()) {
-                return true;
-            } else {
-                return false;
-            }
-        }
-
-        void printConnectionFailedState() {
-            switch(_mqttClient.state()) {
-                case -4:
-                    Serial.printf("%s: connection timeout\n\r", FILE_NAME_MQTT_WRAPPER);
-                break;
-
-                case -3:
-                    Serial.printf("%s: connection lost\n\r", FILE_NAME_MQTT_WRAPPER);
-                break;
-
-                case -2:
-                    Serial.printf("%s: connect failed\n\r", FILE_NAME_MQTT_WRAPPER);
-                break;
-
-                case -1:
-                    Serial.printf("%s: disconnection\n\r", FILE_NAME_MQTT_WRAPPER);
-                break;
-                
-                case 1:
-                    Serial.printf("%s: connect bad protocol\n\r", FILE_NAME_MQTT_WRAPPER);
-                break;
-
-                case 2:
-                    Serial.printf("%s: connect bad client ID\n\r", FILE_NAME_MQTT_WRAPPER);
-                break;
-
-                case 3:
-                    Serial.printf("%s: connection unavailable\n\r", FILE_NAME_MQTT_WRAPPER);
-                break;
-
-                case 4:
-                    Serial.printf("%s: connect bad credentials\n\r", FILE_NAME_MQTT_WRAPPER);
-                break;
-
-                case 5:
-                    Serial.printf("%s: connect unauthorized\n\r", FILE_NAME_MQTT_WRAPPER);
-                break;               
-            }
-        }
-
-        void threadLoop() {
-            _mqttClient.loop();
-        }
-
-        void onMessageReceivedCallback(char* topic, uint8_t* payload, uint16_t length) {
-
-            uint8_t topicSize = sizeof(_topicList[_topicCount].topic);
-            
-            Serial.printf("%s: onMessageReceivedCallback [%s] [", FILE_NAME_MQTT_WRAPPER, topic);
-            for (int i=0;i<length;i++) {
-                Serial.print((char)payload[i]);
-            }
-            Serial.println("]");
-
-            for (uint8_t index = 0; index < _topicCount; index++) {
-                TopicList *ref = &_topicList[index];
-
-                if (!memcmp(&topic[0], &_topicList[index].topic[0], topicSize - 1)) {
-                    if (ref->callback != nullptr) {
-                        ref->callback(payload, length);
-                        break;
-                    } else {
-                        Serial.printf("%s: topic callback is null!\n\r", FILE_NAME_MQTT_WRAPPER);
-                        break;
-                    }
-                }
-            }
-        }
-
-        static void staticTickerCallback() {
-            getInstance().tickerCallbackFunction();
-        }
-
-        void tickerCallbackFunction() {
-            if(numOfConnectRetry) {
-                if(!_mqttClient.connected()) {
-                    Serial.printf("%s: connecting to %s...\n\r", FILE_NAME_MQTT_WRAPPER, _mqttServer); 
-                    if(_mqttClient.connect("SmartHomeLight", _mqttUser, _mqttPassword )) {
-                        Serial.printf("%s: connected to server: %s\n\r", FILE_NAME_MQTT_WRAPPER, _mqttServer);
-                        Serial.printf("%s: with user: %s\n\r", FILE_NAME_MQTT_WRAPPER, _mqttUser);
-                    
-                        for(uint8_t index = 0; index < _topicCount; index++)
-                        {
-                            _mqttClient.subscribe(_topicList[index].topic);
-                            Serial.printf("%s: subscribed to topic: %s\n\r", FILE_NAME_MQTT_WRAPPER, _topicList[index].topic);
-                        }
-                        _mqttClient.publish("sss/shs/5C:CF:7F:68:13:FB/info", "boot");
-                    } else {
-                        Serial.printf("%s: failed with state %d \n\r", FILE_NAME_MQTT_WRAPPER, _mqttClient.state());
-                        printConnectionFailedState();
-                    } 
-                } else {
-                    if(_mqttClient.state() != 0) {
-                        numOfConnectRetry--;
-                    }
-                }
-            } else {
-                Serial.printf("%s: connecting retry's expired...\n\r", FILE_NAME_MQTT_WRAPPER); 
-            }
-        }
+        void tickerCallbackFunction();
 };
 
 /* Define to prevent recursive inclusion ------------------------------------ */
