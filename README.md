@@ -1,5 +1,5 @@
 # firmware_esp8266_arduino_lib_mqtt_wrapper
-ESP8266 Adruino FrameworkMQTT Wrapper
+ESP8266 Adruino Framework MQTT Wrapper
 
 |Public Method|Description|
 |-------------|-----------|
